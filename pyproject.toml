@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fashion-image-search"
+version = "0.1.0"
+description = "Lightweight Streamlit app for organizing and searching fashion inspiration imagery."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "openai>=1.75.0",
+  "pandas>=2.2.3",
+  "pillow>=11.1.0",
+  "pydantic>=2.10.6",
+  "python-dotenv>=1.0.1",
+  "streamlit>=1.44.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.5",
+  "pytest-cov>=6.0.0",
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
