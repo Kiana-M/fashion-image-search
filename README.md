@@ -4,11 +4,12 @@ A lightweight Streamlit app for uploading, classifying, organizing, and searchin
 
 ## Project Status
 
-This repository is being built incrementally. The current scaffold includes:
+This repository is being built incrementally. The current implementation includes:
 
 - a Streamlit entrypoint
 - SQLite storage setup
-- initial app/service module structure
+- image upload and local asset persistence
+- AI classification orchestration with OpenAI-first behavior and local fallback metadata generation
 - pytest test layout
 
 ## Planned Scope
@@ -74,4 +75,5 @@ data/      Local runtime storage for uploaded assets
 
 - This is a local-first proof of concept optimized for fast setup and demoability.
 - SQLite is sufficient for the expected one-day prototype scope.
+- If no OpenAI API key is configured, the app falls back to heuristic metadata generation so the local workflow remains usable.
 - Evaluation results and known limitations will be added as implementation progresses.

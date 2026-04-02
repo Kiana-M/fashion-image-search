@@ -1,10 +1,8 @@
-from pathlib import Path
-
 import streamlit as st
 
 from app.config import DB_PATH, UPLOAD_DIR
 from app.db import init_db
-from app.services import build_placeholder_classification
+from app.services import load_recent_images, process_upload
 
 
 st.set_page_config(page_title="Fashion Image Search", layout="wide")
@@ -24,30 +22,66 @@ def render_home() -> None:
         "search it later through designer-friendly filters."
     )
 
-    uploaded = st.file_uploader(
-        "Upload garment or streetwear inspiration",
-        type=["jpg", "jpeg", "png", "webp"],
-        accept_multiple_files=False,
-        disabled=True,
-        help="Upload will be enabled once the persistence and classification flow is implemented.",
-    )
+    with st.form("upload-form", clear_on_submit=True):
+        designer = st.text_input("Designer", placeholder="Jane Doe")
+        captured_at = st.text_input("Capture date", placeholder="2026-04-01")
+        uploaded = st.file_uploader(
+            "Upload garment or streetwear inspiration",
+            type=["jpg", "jpeg", "png", "webp"],
+            accept_multiple_files=False,
+        )
+        submit = st.form_submit_button("Upload and classify")
 
-    if uploaded:
-        st.info("Upload support is coming in the next implementation step.")
+    if submit and not uploaded:
+        st.warning("Select an image before submitting.")
+    elif submit and uploaded:
+        with st.spinner("Saving image and generating metadata..."):
+            image_record, result = process_upload(
+                file_name=uploaded.name,
+                file_bytes=uploaded.getvalue(),
+                designer=designer or None,
+                captured_at=captured_at or None,
+            )
+        st.success(f"Stored {image_record.file_name} and generated metadata.")
+        st.subheader("Latest Classification")
+        st.caption(
+            f"Source: {result.source}"
+            + (f" | Model: {result.model_name}" if result.model_name else " | Heuristic fallback")
+        )
+        st.json(result.model_dump())
 
-    st.subheader("Next Milestones")
-    st.markdown(
-        """
-        - Enable image upload and local asset persistence
-        - Run AI classification and parse structured attributes
-        - Add visual library search, filters, and annotations
-        - Evaluate model quality on a labeled test set
-        """
-    )
+    recent_images = load_recent_images()
+    st.subheader("Recent Uploads")
+    if not recent_images:
+        st.info("No images uploaded yet.")
+        return
 
-    placeholder = build_placeholder_classification()
-    st.subheader("Expected Classification Shape")
-    st.json(placeholder.model_dump())
+    for record in recent_images[:10]:
+        left, right = st.columns([1, 2])
+        with left:
+            st.image(record.file_path, use_container_width=True)
+        with right:
+            st.markdown(f"**{record.file_name}**")
+            if record.designer:
+                st.write(f"Designer: {record.designer}")
+            if record.captured_at:
+                st.write(f"Captured: {record.captured_at}")
+            if record.description:
+                st.write(record.description)
+            summary_parts = [
+                record.garment_type,
+                record.style,
+                record.material,
+                ", ".join(record.color_palette) if record.color_palette else None,
+            ]
+            visible_parts = [part for part in summary_parts if part]
+            if visible_parts:
+                st.caption(" | ".join(visible_parts))
+            st.caption(
+                "Classification source: "
+                + (record.classification_source or "pending")
+                + (f" ({record.model_name})" if record.model_name else "")
+            )
 
 
 def main() -> None:

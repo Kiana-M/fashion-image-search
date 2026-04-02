@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS ai_classifications (
     continent TEXT,
     country TEXT,
     city TEXT,
+    source TEXT,
+    model_name TEXT,
+    classified_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     raw_response TEXT,
     FOREIGN KEY(image_id) REFERENCES images(id) ON DELETE CASCADE
 );
