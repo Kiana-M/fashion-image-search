@@ -31,7 +31,7 @@ This prototype is designed for fashion designers who collect inspiration imagery
 2. Install dependencies into the environment:
 
 ```bash
-./.venv/bin/pip install -e '.[dev]'
+pip install -e '.[dev]'
 ```
 
 3. Copy environment variables:
@@ -45,13 +45,13 @@ cp .env.example .env
 5. Run the app:
 
 ```bash
-./.venv/bin/streamlit run app/main.py
+streamlit run app/main.py
 ```
 
 6. Run tests:
 
 ```bash
-./.venv/bin/python -m pytest
+python -m pytest
 ```
 
 7. Run evaluation:
@@ -59,13 +59,13 @@ cp .env.example .env
 Fallback-allowed:
 
 ```bash
-./.venv/bin/python fashion_eval.py --dataset eval/dataset/starter_labels.jsonl --output eval/results/latest_report.json
+python fashion_eval.py --dataset eval/dataset/starter_labels.jsonl --output eval/results/latest_report.json
 ```
 
 OpenAI-required:
 
 ```bash
-./.venv/bin/python fashion_eval.py --require-openai --dataset eval/dataset/examples_labels.jsonl --output eval/results/examples_report.json
+python fashion_eval.py --require-openai --dataset eval/dataset/examples_labels.jsonl --output eval/results/examples_report.json
 ```
 
 ## Repository Structure
@@ -88,7 +88,6 @@ data/      Local runtime storage for uploaded assets
 
 ## Product Trade-Offs
 
-- Streamlit keeps the UI lightweight and fast to iterate on, which fits the one-day constraint better than a heavier frontend stack.
 - SQLite and local file storage keep setup minimal and make the prototype easy to run locally without cloud infrastructure.
 - The app uses an OpenAI-first classification path when an API key is available, but falls back to heuristics so the full workflow can still be demoed offline.
 - Search is currently substring-based over AI descriptions and annotations rather than true semantic retrieval. This keeps implementation simple but limits natural-language flexibility.
@@ -143,7 +142,7 @@ Interpretation:
 
 ## Evaluation Workflow
 
-1. Add evaluation images under `eval/dataset/images/`.
+1. Add evaluation images under `eval/dataset/images/`. (there are 56 images available under data/examples that were used for the evaluation).
 2. Label expected metadata in `eval/dataset/starter_labels.jsonl` or another JSONL file with the same schema.
 3. Run:
 
