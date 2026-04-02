@@ -1,12 +1,8 @@
-import base64
 from pathlib import Path
 
 from app.services import process_upload
 
-
-PNG_BYTES = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8m0sAAAAASUVORK5CYII="
-)
+from tests.conftest import PNG_BYTES
 
 
 def test_process_upload_persists_image_and_metadata(temp_db, tmp_path: Path) -> None:

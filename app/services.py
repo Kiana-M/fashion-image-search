@@ -4,14 +4,15 @@ import json
 import uuid
 from collections import Counter
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from PIL import Image
 
 from app.config import OPENAI_API_KEY, OPENAI_MODEL, UPLOAD_DIR
-from app.models import ClassificationResult, GarmentAttributes, ImageRecord
+from app.library import LibraryFilters, build_filter_options, filter_records
+from app.models import Annotation, ClassificationResult, GarmentAttributes, ImageRecord
 from app.parsing import parse_classification_output
-from app.repository import create_image_record, list_image_records, save_classification
+from app.repository import create_image_record, list_image_records, save_annotation, save_classification
 
 try:
     from openai import OpenAI
@@ -280,3 +281,28 @@ def process_upload(
 
 def load_recent_images(*, db_path: Optional[Path] = None) -> list[ImageRecord]:
     return list_image_records(db_path=db_path)
+
+
+def save_designer_annotation(
+    image_id: int,
+    *,
+    tags_text: str,
+    notes: str,
+    db_path: Optional[Path] = None,
+) -> None:
+    tags = [tag.strip() for tag in tags_text.split(",") if tag.strip()]
+    save_annotation(image_id, Annotation(tags=tags, notes=notes.strip()), db_path=db_path)
+
+
+def search_library(
+    filters: LibraryFilters,
+    *,
+    db_path: Optional[Path] = None,
+) -> list[ImageRecord]:
+    records = list_image_records(db_path=db_path)
+    return filter_records(records, filters)
+
+
+def get_filter_options(*, db_path: Optional[Path] = None) -> dict[str, list[str]]:
+    records = list_image_records(db_path=db_path)
+    return build_filter_options(records)

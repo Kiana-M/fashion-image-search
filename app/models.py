@@ -53,3 +53,5 @@ class ImageRecord(BaseModel):
     city: Optional[str] = None
     classification_source: Optional[str] = None
     model_name: Optional[str] = None
+    annotation_tags: List[str] = Field(default_factory=list)
+    annotation_notes: str = ""

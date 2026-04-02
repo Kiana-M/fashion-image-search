@@ -10,6 +10,8 @@ This repository is being built incrementally. The current implementation include
 - SQLite storage setup
 - image upload and local asset persistence
 - AI classification orchestration with OpenAI-first behavior and local fallback metadata generation
+- searchable library grid with dynamically generated filters
+- designer annotations stored separately from AI-generated metadata
 - pytest test layout
 
 ## Planned Scope

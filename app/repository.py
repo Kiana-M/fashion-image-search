@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.db import get_connection
-from app.models import ClassificationResult, ImageRecord
+from app.models import Annotation, ClassificationResult, ImageRecord
 
 
 def create_image_record(
@@ -121,10 +121,14 @@ def list_image_records(*, db_path: Optional[Path] = None) -> list[ImageRecord]:
                 ai_classifications.country,
                 ai_classifications.city,
                 ai_classifications.source AS classification_source,
-                ai_classifications.model_name
+                ai_classifications.model_name,
+                annotations.tags AS annotation_tags,
+                annotations.notes AS annotation_notes
             FROM images
             LEFT JOIN ai_classifications
                 ON ai_classifications.image_id = images.id
+            LEFT JOIN annotations
+                ON annotations.image_id = images.id
             ORDER BY images.created_at DESC, images.id DESC
             """
         ).fetchall()
@@ -154,6 +158,32 @@ def list_image_records(*, db_path: Optional[Path] = None) -> list[ImageRecord]:
                 city=row["city"],
                 classification_source=row["classification_source"],
                 model_name=row["model_name"],
+                annotation_tags=json.loads(row["annotation_tags"]) if row["annotation_tags"] else [],
+                annotation_notes=row["annotation_notes"] or "",
             )
         )
     return records
+
+
+def save_annotation(
+    image_id: int,
+    annotation: Annotation,
+    *,
+    db_path: Optional[Path] = None,
+) -> None:
+    with get_connection(db_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO annotations (image_id, tags, notes)
+            VALUES (?, ?, ?)
+            ON CONFLICT(image_id) DO UPDATE SET
+                tags = excluded.tags,
+                notes = excluded.notes,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                image_id,
+                json.dumps(annotation.tags),
+                annotation.notes,
+            ),
+        )

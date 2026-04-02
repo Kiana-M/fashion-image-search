@@ -1,7 +1,7 @@
-from app.services import build_placeholder_classification
+from app.library import LibraryFilters
+from app.services import search_library
 
 
-def test_placeholder_classification_has_description() -> None:
-    result = build_placeholder_classification()
-
-    assert "not wired up yet" in result.description
+def test_empty_library_search_returns_no_results(temp_db) -> None:
+    results = search_library(LibraryFilters(query="embroidered neckline"), db_path=temp_db)
+    assert results == []
