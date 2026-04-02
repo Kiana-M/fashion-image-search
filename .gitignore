@@ -11,3 +11,4 @@ data/uploads/*
 app.db
 coverage.xml
 htmlcov/
+eval/results/*.json

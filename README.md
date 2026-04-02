@@ -12,6 +12,7 @@ This repository is being built incrementally. The current implementation include
 - AI classification orchestration with OpenAI-first behavior and local fallback metadata generation
 - searchable library grid with dynamically generated filters
 - designer annotations stored separately from AI-generated metadata
+- evaluation script and starter labeled dataset format under `eval/`
 - pytest test layout
 
 ## Planned Scope
@@ -72,6 +73,7 @@ data/      Local runtime storage for uploaded assets
 - The app will store uploaded images on disk and structured metadata in SQLite.
 - AI-generated descriptions and parsed attributes will be stored separately from designer-authored annotations.
 - Filters will be generated dynamically from the stored metadata to avoid hardcoded facets.
+- The evaluation workflow uses a JSONL labeled dataset and regenerates a structured report with per-attribute accuracy and sample failure cases.
 
 ## Assumptions
 
@@ -79,3 +81,15 @@ data/      Local runtime storage for uploaded assets
 - SQLite is sufficient for the expected one-day prototype scope.
 - If no OpenAI API key is configured, the app falls back to heuristic metadata generation so the local workflow remains usable.
 - Evaluation results and known limitations will be added as implementation progresses.
+
+## Evaluation Workflow
+
+1. Add evaluation images under `eval/dataset/images/`.
+2. Label expected metadata in `eval/dataset/starter_labels.jsonl` or another JSONL file with the same schema.
+3. Run:
+
+```bash
+python3 -m eval.evaluate --dataset eval/dataset/starter_labels.jsonl
+```
+
+4. Inspect the generated report in `eval/results/latest_report.json`.
