@@ -197,13 +197,17 @@ def build_error_analysis(
     }
 
 
-def run_evaluation(dataset_path: Path) -> dict[str, Any]:
+def run_evaluation(dataset_path: Path, *, require_openai: bool = False) -> dict[str, Any]:
     dataset = load_dataset(dataset_path)
     predictions: list[ClassificationResult] = []
     score_rows: list[dict[str, bool | None]] = []
 
     for row in dataset:
-        prediction = classify_image(Path(row.image_path), Path(row.image_path).name)
+        prediction = classify_image(
+            Path(row.image_path),
+            Path(row.image_path).name,
+            allow_fallback=not require_openai,
+        )
         predictions.append(prediction)
         score_rows.append(evaluate_prediction(row, prediction))
 
@@ -249,9 +253,14 @@ def main() -> None:
         default=Path("eval/results/latest_report.json"),
         help="Path for the generated evaluation report.",
     )
+    parser.add_argument(
+        "--require-openai",
+        action="store_true",
+        help="Fail the evaluation if any sample cannot be classified by the OpenAI model.",
+    )
     args = parser.parse_args()
 
-    report = run_evaluation(args.dataset)
+    report = run_evaluation(args.dataset, require_openai=args.require_openai)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"Wrote evaluation report to {args.output}")

@@ -270,12 +270,25 @@ def classify_with_openai(image_path: Path) -> ClassificationResult:
     return result
 
 
-def classify_image(image_path: Path, file_name: str) -> ClassificationResult:
+def classify_image(
+    image_path: Path,
+    file_name: str,
+    *,
+    allow_fallback: bool = True,
+) -> ClassificationResult:
     try:
         result = classify_with_openai(image_path)
         logger.info("Classification completed with OpenAI for file_name=%s", file_name)
         return result
     except Exception as exc:
+        if not allow_fallback:
+            logger.exception(
+                "OpenAI classification failed for file_name=%s image_path=%s and fallback is disabled. error=%s",
+                file_name,
+                image_path,
+                exc,
+            )
+            raise
         logger.exception(
             "OpenAI classification failed for file_name=%s image_path=%s. Falling back to heuristic classifier. error=%s",
             file_name,
