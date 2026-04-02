@@ -90,9 +90,12 @@ def _closest_color_name(rgb: tuple[int, int, int]) -> str:
 
 
 def _extract_palette(image_path: Path) -> list[str]:
-    with Image.open(image_path) as image:
-        reduced = image.convert("RGB").resize((100, 100))
-        colors = reduced.getdata()
+    try:
+        with Image.open(image_path) as image:
+            reduced = image.convert("RGB").resize((100, 100))
+            colors = reduced.getdata()
+    except OSError:
+        return []
 
     counts = Counter(_closest_color_name(pixel) for pixel in colors)
     return [name for name, _count in counts.most_common(3)]

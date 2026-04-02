@@ -1,16 +1,16 @@
+from io import BytesIO
 from pathlib import Path
 import sqlite3
 
 import pytest
+from PIL import Image
 
 from app.db import SCHEMA
 
 
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-    b"\x08\x04\x00\x00\x00\xb5\x1c\x0c\x02\x00\x00\x00\x0bIDATx\xdac\xfc"
-    b"\xff\x1f\x00\x02\xeb\x01\xf5i\xfc\x9bK\x00\x00\x00\x00IEND\xaeB`\x82"
-)
+buffer = BytesIO()
+Image.new("RGB", (4, 4), color=(44, 82, 160)).save(buffer, format="PNG")
+PNG_BYTES = buffer.getvalue()
 
 
 @pytest.fixture()
