@@ -31,7 +31,7 @@ This prototype is designed for fashion designers who collect inspiration imagery
 2. Install dependencies into the environment:
 
 ```bash
-./.venv/bin/pip install -e .[dev]
+./.venv/bin/pip install -e '.[dev]'
 ```
 
 3. Copy environment variables:
@@ -39,14 +39,15 @@ This prototype is designed for fashion designers who collect inspiration imagery
 ```bash
 cp .env.example .env
 ```
+4. Add your api key
 
-4. Run the app:
+5. Run the app:
 
 ```bash
 ./.venv/bin/streamlit run app/main.py
 ```
 
-5. Run tests:
+6. Run tests:
 
 ```bash
 ./.venv/bin/python -m pytest

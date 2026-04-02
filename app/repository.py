@@ -3,7 +3,11 @@ from pathlib import Path
 from typing import Optional
 
 from app.db import get_connection
+from app.logging_utils import get_logger
 from app.models import Annotation, ClassificationResult, ImageRecord
+
+
+logger = get_logger(__name__)
 
 
 def create_image_record(
@@ -14,6 +18,7 @@ def create_image_record(
     captured_at: Optional[str],
     db_path: Optional[Path] = None,
 ) -> int:
+    logger.info("Creating image record for file_name=%s designer=%s", file_name, designer)
     with get_connection(db_path) as connection:
         cursor = connection.execute(
             """
@@ -22,7 +27,9 @@ def create_image_record(
             """,
             (file_name, file_path, designer, captured_at),
         )
-        return int(cursor.lastrowid)
+        image_id = int(cursor.lastrowid)
+        logger.info("Created image record id=%s file_name=%s", image_id, file_name)
+        return image_id
 
 
 def save_classification(
@@ -32,6 +39,12 @@ def save_classification(
     db_path: Optional[Path] = None,
 ) -> None:
     attributes = result.attributes
+    logger.info(
+        "Saving classification for image_id=%s source=%s model=%s",
+        image_id,
+        result.source,
+        result.model_name,
+    )
     with get_connection(db_path) as connection:
         connection.execute(
             """
@@ -94,9 +107,11 @@ def save_classification(
                 result.raw_response,
             ),
         )
+    logger.info("Saved classification for image_id=%s", image_id)
 
 
 def list_image_records(*, db_path: Optional[Path] = None) -> list[ImageRecord]:
+    logger.info("Loading image records for library view.")
     with get_connection(db_path) as connection:
         rows = connection.execute(
             """
@@ -162,6 +177,7 @@ def list_image_records(*, db_path: Optional[Path] = None) -> list[ImageRecord]:
                 annotation_notes=row["annotation_notes"] or "",
             )
         )
+    logger.info("Loaded %s image records from storage.", len(records))
     return records
 
 
@@ -171,6 +187,7 @@ def save_annotation(
     *,
     db_path: Optional[Path] = None,
 ) -> None:
+    logger.info("Saving annotation for image_id=%s tags=%s", image_id, annotation.tags)
     with get_connection(db_path) as connection:
         connection.execute(
             """
@@ -187,3 +204,4 @@ def save_annotation(
                 annotation.notes,
             ),
         )
+    logger.info("Saved annotation for image_id=%s", image_id)

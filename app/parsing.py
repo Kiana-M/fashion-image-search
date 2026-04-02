@@ -3,10 +3,12 @@ from typing import Any, Dict, Iterable, Optional
 
 from pydantic import ValidationError
 
+from app.logging_utils import get_logger
 from app.models import ClassificationResult, GarmentAttributes
 
 
 LIST_FIELDS = {"color_palette", "trend_notes"}
+logger = get_logger(__name__)
 
 
 def _normalize_list(value: Any) -> list[str]:
@@ -41,15 +43,19 @@ def _coerce_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
 def extract_json_object(text: str) -> Dict[str, Any]:
     stripped = text.strip()
     if not stripped:
+        logger.error("Model output was empty during JSON extraction.")
         raise ValueError("Model output was empty.")
 
     try:
+        logger.debug("Attempting direct JSON parse of model output.")
         return json.loads(stripped)
     except json.JSONDecodeError:
         start = stripped.find("{")
         end = stripped.rfind("}")
         if start == -1 or end == -1 or end <= start:
+            logger.error("Model output did not contain a valid JSON object.")
             raise ValueError("Model output did not contain a JSON object.")
+        logger.debug("Recovered JSON object from surrounding text in model output.")
         return json.loads(stripped[start : end + 1])
 
 
@@ -60,6 +66,7 @@ def parse_classification_output(
     model_name: Optional[str] = None,
     raw_response: Optional[str] = None,
 ) -> ClassificationResult:
+    logger.info("Parsing classification output from source=%s model=%s", source, model_name)
     if isinstance(payload, str):
         raw_text = payload
         payload_dict = extract_json_object(payload)
@@ -69,6 +76,7 @@ def parse_classification_output(
 
     normalized = _coerce_payload(payload_dict)
     if not normalized["description"]:
+        logger.error("Parsed model payload is missing a description.")
         raise ValueError("Model output must include a description.")
 
     try:
@@ -81,6 +89,8 @@ def parse_classification_output(
             }
         )
     except ValidationError as exc:
+        logger.exception("Failed to validate parsed classification payload.")
         raise ValueError(f"Failed to parse classification output: {exc}") from exc
 
+    logger.info("Successfully parsed classification output from source=%s model=%s", source, model_name)
     return result

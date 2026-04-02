@@ -4,6 +4,10 @@ from pathlib import Path
 from typing import Iterator
 
 from app.config import DB_PATH, UPLOAD_DIR
+from app.logging_utils import get_logger
+
+
+logger = get_logger(__name__)
 
 
 SCHEMA = """
@@ -50,21 +54,33 @@ CREATE TABLE IF NOT EXISTS annotations (
 
 def ensure_directories() -> None:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    logger.info("Ensured upload directory exists at %s", UPLOAD_DIR)
 
 
-def init_db(db_path: Path = DB_PATH) -> None:
+def resolve_db_path(db_path: Path | None = None) -> Path:
+    return db_path or DB_PATH
+
+
+def init_db(db_path: Path | None = None) -> None:
+    resolved_db_path = resolve_db_path(db_path)
     ensure_directories()
-    with sqlite3.connect(db_path) as connection:
+    logger.info("Initializing SQLite database at %s", resolved_db_path)
+    with sqlite3.connect(resolved_db_path) as connection:
         connection.executescript(SCHEMA)
         connection.commit()
+    logger.info("Database initialization complete at %s", resolved_db_path)
 
 
 @contextmanager
-def get_connection(db_path: Path = DB_PATH) -> Iterator[sqlite3.Connection]:
-    connection = sqlite3.connect(db_path)
+def get_connection(db_path: Path | None = None) -> Iterator[sqlite3.Connection]:
+    resolved_db_path = resolve_db_path(db_path)
+    logger.debug("Opening SQLite connection to %s", resolved_db_path)
+    connection = sqlite3.connect(resolved_db_path)
     connection.row_factory = sqlite3.Row
     try:
         yield connection
         connection.commit()
+        logger.debug("Committed SQLite transaction to %s", resolved_db_path)
     finally:
         connection.close()
+        logger.debug("Closed SQLite connection to %s", resolved_db_path)

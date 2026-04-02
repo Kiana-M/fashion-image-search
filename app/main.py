@@ -1,12 +1,23 @@
+from pathlib import Path
+import sys
+
 import streamlit as st
+
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from app.config import DB_PATH, UPLOAD_DIR
 from app.db import init_db
 from app.library import LibraryFilters
+from app.logging_utils import configure_logging, get_logger
 from app.models import ImageRecord
 from app.services import get_filter_options, process_upload, save_designer_annotation, search_library
 
 
+configure_logging()
+logger = get_logger(__name__)
 st.set_page_config(page_title="Fashion Image Search", layout="wide")
 
 
@@ -18,6 +29,7 @@ def render_sidebar() -> None:
 
 
 def render_filters() -> LibraryFilters:
+    logger.debug("Rendering sidebar filters.")
     options = get_filter_options()
     st.sidebar.subheader("Search and Filters")
     query = st.sidebar.text_input("Natural-language search", placeholder="embroidered neckline")
@@ -65,6 +77,7 @@ def render_annotation_editor(record_id: int, tags: list[str], notes: str) -> Non
             notes_text = st.text_area("Notes", value=notes, key=f"notes-{record_id}")
             save = st.form_submit_button("Save annotations")
         if save:
+            logger.info("Annotation form submitted for image_id=%s", record_id)
             save_designer_annotation(record_id, tags_text=tags_text, notes=notes_text)
             st.success("Annotations saved.")
             st.rerun()
@@ -122,6 +135,7 @@ def render_record_card(record: ImageRecord) -> None:
 
 
 def render_home() -> None:
+    logger.info("Rendering main application view.")
     st.title("Fashion Inspiration Library")
     st.write(
         "Upload field imagery, enrich it with AI-generated fashion metadata, and "
@@ -139,8 +153,10 @@ def render_home() -> None:
         submit = st.form_submit_button("Upload and classify")
 
     if submit and not uploaded:
+        logger.warning("Upload form submitted without a file.")
         st.warning("Select an image before submitting.")
     elif submit and uploaded:
+        logger.info("Upload form submitted for file_name=%s", uploaded.name)
         with st.spinner("Saving image and generating metadata..."):
             image_record, result = process_upload(
                 file_name=uploaded.name,
@@ -154,6 +170,8 @@ def render_home() -> None:
             f"Source: {result.source}"
             + (f" | Model: {result.model_name}" if result.model_name else " | Heuristic fallback")
         )
+        if result.source == "fallback":
+            logger.warning("Latest classification used fallback path for file_name=%s", image_record.file_name)
         st.json(result.model_dump())
 
     filters = render_filters()
@@ -174,6 +192,7 @@ def render_home() -> None:
 
 
 def main() -> None:
+    logger.info("Starting Fashion Image Search app.")
     init_db()
     render_sidebar()
     render_home()

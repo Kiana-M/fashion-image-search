@@ -10,6 +10,7 @@ from PIL import Image
 
 from app.config import OPENAI_API_KEY, OPENAI_MODEL, UPLOAD_DIR
 from app.library import LibraryFilters, build_filter_options, filter_records
+from app.logging_utils import get_logger
 from app.models import Annotation, ClassificationResult, GarmentAttributes, ImageRecord
 from app.parsing import parse_classification_output
 from app.repository import create_image_record, list_image_records, save_annotation, save_classification
@@ -18,6 +19,9 @@ try:
     from openai import OpenAI
 except ImportError:  # pragma: no cover
     OpenAI = None
+
+
+logger = get_logger(__name__)
 
 
 CLASSIFICATION_PROMPT = """
@@ -61,6 +65,7 @@ def persist_upload(file_name: str, file_bytes: bytes, upload_dir: Path = UPLOAD_
     stored_name = f"{uuid.uuid4().hex}{extension}"
     destination = upload_dir / stored_name
     destination.write_bytes(file_bytes)
+    logger.info("Persisted upload file_name=%s destination=%s", file_name, destination)
     return destination
 
 
@@ -95,10 +100,13 @@ def _extract_palette(image_path: Path) -> list[str]:
             reduced = image.convert("RGB").resize((100, 100))
             colors = reduced.getdata()
     except OSError:
+        logger.warning("Palette extraction failed for image_path=%s", image_path)
         return []
 
     counts = Counter(_closest_color_name(pixel) for pixel in colors)
-    return [name for name, _count in counts.most_common(3)]
+    palette = [name for name, _count in counts.most_common(3)]
+    logger.debug("Extracted fallback color palette %s for image_path=%s", palette, image_path)
+    return palette
 
 
 def _attribute_from_keywords(name: str, mapping: dict[str, str]) -> Optional[str]:
@@ -110,6 +118,7 @@ def _attribute_from_keywords(name: str, mapping: dict[str, str]) -> Optional[str
 
 
 def build_fallback_classification(image_path: Path, file_name: str) -> ClassificationResult:
+    logger.warning("Using fallback classification for file_name=%s image_path=%s", file_name, image_path)
     lowered = file_name.lower()
     garment_type = _attribute_from_keywords(
         lowered,
@@ -218,6 +227,7 @@ def classify_with_openai(image_path: Path) -> ClassificationResult:
     if OpenAI is None:
         raise RuntimeError("openai package is not installed.")
 
+    logger.info("Starting OpenAI image classification for image_path=%s model=%s", image_path, OPENAI_MODEL)
     encoded_image = base64.b64encode(image_path.read_bytes()).decode("utf-8")
     image_format = image_path.suffix.lstrip(".") or "jpeg"
     client = OpenAI(api_key=OPENAI_API_KEY)
@@ -244,19 +254,44 @@ def classify_with_openai(image_path: Path) -> ClassificationResult:
         ],
     )
     raw_text = getattr(response, "output_text", "") or ""
-    return parse_classification_output(
+    logger.info(
+        "OpenAI responses.create succeeded for image_path=%s model=%s output_chars=%s",
+        image_path,
+        OPENAI_MODEL,
+        len(raw_text),
+    )
+    result = parse_classification_output(
         raw_text,
         source="openai",
         model_name=OPENAI_MODEL,
         raw_response=raw_text,
     )
+    logger.info("OpenAI classification parsed successfully for image_path=%s", image_path)
+    return result
 
 
 def classify_image(image_path: Path, file_name: str) -> ClassificationResult:
     try:
-        return classify_with_openai(image_path)
-    except Exception:
-        return build_fallback_classification(image_path, file_name)
+        result = classify_with_openai(image_path)
+        logger.info("Classification completed with OpenAI for file_name=%s", file_name)
+        return result
+    except Exception as exc:
+        logger.exception(
+            "OpenAI classification failed for file_name=%s image_path=%s. Falling back to heuristic classifier. error=%s",
+            file_name,
+            image_path,
+            exc,
+        )
+        fallback_result = build_fallback_classification(image_path, file_name)
+        fallback_result.raw_response = json.dumps(
+            {
+                "fallback": True,
+                "file_name": file_name,
+                "openai_error": str(exc),
+            },
+            ensure_ascii=True,
+        )
+        return fallback_result
 
 
 def process_upload(
@@ -268,6 +303,7 @@ def process_upload(
     db_path: Optional[Path] = None,
     upload_dir: Path = UPLOAD_DIR,
 ) -> tuple[ImageRecord, ClassificationResult]:
+    logger.info("Beginning upload processing for file_name=%s designer=%s", file_name, designer)
     saved_path = persist_upload(file_name, file_bytes, upload_dir=upload_dir)
     image_id = create_image_record(
         file_name=file_name,
@@ -279,10 +315,17 @@ def process_upload(
     result = classify_image(saved_path, file_name)
     save_classification(image_id, result, db_path=db_path)
     image_record = list_image_records(db_path=db_path)[0]
+    logger.info(
+        "Upload processing complete for image_id=%s file_name=%s source=%s",
+        image_id,
+        file_name,
+        result.source,
+    )
     return image_record, result
 
 
 def load_recent_images(*, db_path: Optional[Path] = None) -> list[ImageRecord]:
+    logger.info("Loading recent images.")
     return list_image_records(db_path=db_path)
 
 
@@ -294,6 +337,7 @@ def save_designer_annotation(
     db_path: Optional[Path] = None,
 ) -> None:
     tags = [tag.strip() for tag in tags_text.split(",") if tag.strip()]
+    logger.info("Saving designer annotation for image_id=%s tag_count=%s", image_id, len(tags))
     save_annotation(image_id, Annotation(tags=tags, notes=notes.strip()), db_path=db_path)
 
 
@@ -302,10 +346,24 @@ def search_library(
     *,
     db_path: Optional[Path] = None,
 ) -> list[ImageRecord]:
+    logger.info(
+        "Searching library query=%s garment_types=%s cities=%s years=%s designers=%s annotation_tags=%s",
+        filters.query,
+        filters.garment_types,
+        filters.cities,
+        filters.years,
+        filters.designers,
+        filters.annotation_tags,
+    )
     records = list_image_records(db_path=db_path)
-    return filter_records(records, filters)
+    filtered = filter_records(records, filters)
+    logger.info("Search returned %s records.", len(filtered))
+    return filtered
 
 
 def get_filter_options(*, db_path: Optional[Path] = None) -> dict[str, list[str]]:
+    logger.info("Building dynamic filter options.")
     records = list_image_records(db_path=db_path)
-    return build_filter_options(records)
+    options = build_filter_options(records)
+    logger.info("Built filter options from %s records.", len(records))
+    return options
