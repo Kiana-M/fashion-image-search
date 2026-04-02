@@ -33,6 +33,67 @@ ATTRIBUTE_GROUPS = {
     "visual_detail": ["pattern", "season", "color_palette", "trend_notes"],
 }
 
+CANONICAL_ALIASES = {
+    "garment_type": {
+        "set": ["set", "matching set", "co-ord", "co ord", "coord", "two-piece", "two piece"],
+        "blazer": ["blazer"],
+        "dress": ["dress", "evening dress", "gown"],
+        "coat": ["coat", "outerwear"],
+        "jacket": ["jacket", "hooded jacket"],
+        "jeans": ["jeans", "denim jeans"],
+        "shirt": ["shirt", "button-up shirt", "button up shirt"],
+        "pants": ["pants", "trousers", "wide-leg pants", "wide leg pants"],
+        "tank top": ["tank top", "tank"],
+        "top": ["top", "crop top", "cropped top"],
+        "suit": ["suit"],
+        "skirt": ["skirt", "long skirt"],
+        "hoodie": ["hoodie"],
+        "sweatshirt": ["sweatshirt"],
+        "jumpsuit": ["jumpsuit"],
+        "blazer dress": ["blazer dress"],
+    },
+    "style": {
+        "tailored": ["tailored", "minimal tailored", "modern tailored"],
+        "minimal": ["minimal", "minimalist"],
+        "streetwear": ["streetwear", "street style", "urban streetwear", "casual streetwear"],
+        "casual": ["casual", "everyday wear"],
+        "editorial": ["editorial", "fashion editorial", "fashion-forward streetwear"],
+        "formal": ["formal", "formalwear"],
+        "evening": ["evening", "eveningwear"],
+        "resort": ["resort"],
+        "utility": ["utility", "utilitarian"],
+        "traditional": ["traditional"],
+        "bridal": ["bridal"],
+        "bohemian": ["bohemian"],
+        "maximalist": ["maximalist", "opulent"],
+        "fashion street": ["fashion street", "street style"],
+        "loungewear": ["loungewear", "lounge"],
+    },
+    "material": {
+        "woven": ["woven", "wool", "polyester blend", "cotton blend", "blend"],
+        "denim": ["denim", "denim jeans", "denim coat"],
+        "cotton": ["cotton", "cotton-blend", "cotton blend"],
+        "wool": ["wool"],
+        "knit": ["knit", "knitted"],
+        "tulle": ["tulle"],
+        "sheer": ["sheer"],
+        "satin": ["satin"],
+        "metallic": ["metallic"],
+        "nylon": ["nylon"],
+    },
+    "occasion": {
+        "casual": ["casual", "everyday wear"],
+        "formal": ["formal", "professional"],
+        "editorial": ["editorial", "fashion editorial"],
+        "occasionwear": ["occasionwear", "special occasion", "formal events", "evening occasions"],
+        "eveningwear": ["eveningwear", "evening occasions"],
+        "daywear": ["daywear", "daytime", "daytime casual"],
+        "workwear": ["workwear", "business casual", "work", "professional"],
+        "party": ["party"],
+        "fashion street": ["streetwear", "street style", "fashion-forward streetwear"],
+    },
+}
+
 
 @dataclass
 class EvaluationRow:
@@ -77,6 +138,21 @@ def _normalize_scalar(value: Any) -> str | None:
     return normalized or None
 
 
+def _canonicalize_scalar(field_name: str, value: Any) -> str | None:
+    normalized = _normalize_scalar(value)
+    if normalized is None:
+        return None
+    aliases = CANONICAL_ALIASES.get(field_name)
+    if not aliases:
+        return normalized
+    for canonical, variants in aliases.items():
+        if canonical == normalized:
+            return canonical
+        if any(variant in normalized for variant in variants):
+            return canonical
+    return normalized
+
+
 def _normalize_list(value: Any) -> list[str]:
     if value is None:
         return []
@@ -90,11 +166,11 @@ def evaluate_prediction(expected: EvaluationRow, predicted: ClassificationResult
     attributes = predicted.attributes
 
     for field_name in SCALAR_ATTRIBUTES:
-        expected_value = _normalize_scalar(getattr(expected, field_name))
+        expected_value = _canonicalize_scalar(field_name, getattr(expected, field_name))
         if expected_value is None:
             results[field_name] = None
             continue
-        predicted_value = _normalize_scalar(getattr(attributes, field_name))
+        predicted_value = _canonicalize_scalar(field_name, getattr(attributes, field_name))
         results[field_name] = predicted_value == expected_value
 
     for field_name in LIST_ATTRIBUTES:
@@ -124,7 +200,7 @@ def summarize_scores(
             if field_name in LIST_ATTRIBUTES:
                 if _normalize_list(predicted_value):
                     predicted_non_empty += 1
-            elif _normalize_scalar(predicted_value) is not None:
+            elif _canonicalize_scalar(field_name, predicted_value) is not None:
                 predicted_non_empty += 1
         summary[field_name] = {
             "correct": len(correct),

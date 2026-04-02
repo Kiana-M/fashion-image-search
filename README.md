@@ -54,6 +54,20 @@ cp .env.example .env
 ./.venv/bin/python -m pytest
 ```
 
+7. Run evaluation:
+
+Fallback-allowed:
+
+```bash
+./.venv/bin/python fashion_eval.py --dataset eval/dataset/starter_labels.jsonl --output eval/results/latest_report.json
+```
+
+OpenAI-required:
+
+```bash
+./.venv/bin/python fashion_eval.py --require-openai --dataset eval/dataset/examples_labels.jsonl --output eval/results/examples_report.json
+```
+
 ## Repository Structure
 
 ```text
@@ -69,6 +83,8 @@ data/      Local runtime storage for uploaded assets
 - AI-generated descriptions and parsed attributes will be stored separately from designer-authored annotations.
 - Filters will be generated dynamically from the stored metadata to avoid hardcoded facets.
 - The evaluation workflow uses a JSONL labeled dataset and regenerates a structured report with per-attribute accuracy and sample failure cases.
+- The app has two classification paths: a preferred OpenAI multimodal path and a heuristic fallback path used when API calls fail or are disabled.
+- Evaluation can now be run in either mode, and `--require-openai` prevents silent fallback during model-quality benchmarking.
 
 ## Product Trade-Offs
 
@@ -79,7 +95,12 @@ data/      Local runtime storage for uploaded assets
 
 ## Evaluation Summary
 
-The starter evaluation run was generated with:
+Two evaluation modes are supported:
+
+- `fallback-allowed`: useful for local plumbing checks and offline demos
+- `--require-openai`: required when you want to measure the real multimodal model and fail if OpenAI is unavailable
+
+Starter fallback evaluation was generated with:
 
 ```bash
 ./.venv/bin/python fashion_eval.py --dataset eval/dataset/starter_labels.jsonl --output eval/results/latest_report.json
@@ -96,6 +117,29 @@ Interpretation:
 - The current fallback classifier performs well when filename cues are strong, which is why garment type, city, and occasion look good in the starter run.
 - Color palette is the weakest area right now. The heuristic color extraction is intentionally simple and does not yet align well with the labeled expectations.
 - This starter report is useful as a plumbing check, but it is not a meaningful model benchmark yet. A real submission should expand the labeled set to 50-100 diverse images.
+
+Expanded examples-set OpenAI evaluation:
+
+- dataset: `56` manually labeled images from `data/examples/`
+- labels: `eval/dataset/examples_labels.jsonl`
+- report: `eval/results/examples_report.json`
+
+Measured OpenAI results on that set after synonym-aware normalization:
+
+- `garment_type`: `24 / 56 = 0.4286`
+- `style`: `18 / 56 = 0.3214`
+- `material`: `17 / 47 = 0.3617`
+- `occasion`: `31 / 56 = 0.5536`
+- overall micro accuracy across measured core-fashion labels: `0.4186`
+- overall macro accuracy across measured core-fashion labels: `0.4163`
+
+Location context was not scored on the examples set because city/country ground truth could not be assigned reliably from image content alone.
+
+Interpretation:
+
+- The OpenAI model is clearly extracting useful fashion structure from images, especially for `occasion`.
+- Raw exact-match scoring was too strict for fashion phrasing, so the evaluator now normalizes common synonyms such as `matching set` vs `set` and `street style` vs `streetwear`.
+- `style` and `material` remain the hardest fields because the model often returns richer descriptive phrases than the manual label taxonomy.
 
 ## Assumptions
 
@@ -119,6 +163,12 @@ Interpretation:
 
 ```bash
 OPENAI_API_KEY='' ./.venv/bin/python fashion_eval.py --dataset eval/dataset/examples_labels.jsonl --output eval/results/examples_report.json
+```
+
+6. If you want to evaluate only the OpenAI model and fail on any fallback:
+
+```bash
+./.venv/bin/python fashion_eval.py --require-openai --dataset eval/dataset/examples_labels.jsonl --output eval/results/examples_report.json
 ```
 
 ## Testing
