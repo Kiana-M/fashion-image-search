@@ -6,7 +6,12 @@ A lightweight Streamlit app for uploading, classifying, organizing, and searchin
 
 This prototype is designed for fashion designers who collect inspiration imagery in the field and need a fast way to turn scattered photos into a reusable library. The app supports local upload, AI-assisted classification, search and filtering across structured metadata, and designer-authored annotations.
 
-## What Works
+## App Preview
+
+![Fashion Image Search Streamlit UI](data/screenshots/landing_page.jpg)
+
+
+The app includes:
 
 - a Streamlit entrypoint
 - SQLite storage setup
