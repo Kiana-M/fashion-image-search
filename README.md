@@ -14,7 +14,7 @@ This prototype is designed for fashion designers who collect inspiration imagery
 - AI classification orchestration with OpenAI-first behavior and local fallback metadata generation
 - searchable library grid with dynamically generated filters
 - designer annotations stored separately from AI-generated metadata
-- evaluation script and starter labeled dataset format under `eval/`
+- evaluation scripts plus both starter and 56-image labeled datasets under `eval/`
 - pytest test layout
 
 ## Tech Stack
@@ -137,16 +137,9 @@ Location context was not scored on the examples set because city/country ground 
 
 Interpretation:
 
-- The OpenAI model is clearly extracting useful fashion structure from images, especially for `occasion`.
+- The OpenAI model is extracting useful fashion structure from images, especially for `occasion`.
 - Raw exact-match scoring was too strict for fashion phrasing, so the evaluator now normalizes common synonyms such as `matching set` vs `set` and `street style` vs `streetwear`.
 - `style` and `material` remain the hardest fields because the model often returns richer descriptive phrases than the manual label taxonomy.
-
-## Assumptions
-
-- This is a local-first proof of concept optimized for fast setup and demoability.
-- SQLite is sufficient for the expected one-day prototype scope.
-- If no OpenAI API key is configured, the app falls back to heuristic metadata generation so the local workflow remains usable.
-- The committed starter evaluation set is a workflow example, not the final 50-100 image benchmark requested in the prompt.
 
 ## Evaluation Workflow
 
@@ -193,7 +186,7 @@ Current status: `7 passed`
 - Search is lexical rather than embedding-based, so natural-language matching is still shallow.
 - The fallback classifier relies heavily on filename cues and lightweight color heuristics, which is useful for demoing but not production quality.
 - Location inference is only as strong as the model response or filename hints; there is no geocoding or EXIF enrichment yet.
-- The evaluation starter set is intentionally tiny and should be replaced with a 50-100 image labeled benchmark for a proper submission.
+- The starter evaluation set is intentionally tiny, but the repository now also includes a 56-image manually labeled benchmark in `eval/dataset/examples_labels.jsonl`.
 - There are two non-blocking dependency warnings still visible in test runs: `imghdr` deprecation and a Pillow `getdata()` deprecation path.
 
 ## Next Steps
