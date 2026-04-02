@@ -39,7 +39,8 @@ This prototype is designed for fashion designers who collect inspiration imagery
 ```bash
 cp .env.example .env
 ```
-4. Add your api key
+
+4. Add your API key to `.env`.
 
 5. Run the app:
 
@@ -81,7 +82,7 @@ data/      Local runtime storage for uploaded assets
 The starter evaluation run was generated with:
 
 ```bash
-./.venv/bin/python -m eval.evaluate --dataset eval/dataset/starter_labels.jsonl --output eval/results/latest_report.json
+./.venv/bin/python fashion_eval.py --dataset eval/dataset/starter_labels.jsonl --output eval/results/latest_report.json
 ```
 
 Starter-set results on 3 labeled samples:
@@ -110,10 +111,15 @@ Interpretation:
 3. Run:
 
 ```bash
-./.venv/bin/python -m eval.evaluate --dataset eval/dataset/starter_labels.jsonl
+./.venv/bin/python fashion_eval.py --dataset eval/dataset/starter_labels.jsonl --output eval/results/latest_report.json
 ```
 
 4. Inspect the generated report in `eval/results/latest_report.json`.
+5. If you want to bypass OpenAI and force the fallback classifier:
+
+```bash
+OPENAI_API_KEY='' ./.venv/bin/python fashion_eval.py --dataset eval/dataset/examples_labels.jsonl --output eval/results/examples_report.json
+```
 
 ## Testing
 

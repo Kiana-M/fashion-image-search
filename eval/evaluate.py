@@ -27,6 +27,12 @@ LIST_ATTRIBUTES = [
     "trend_notes",
 ]
 
+ATTRIBUTE_GROUPS = {
+    "core_fashion": ["garment_type", "style", "material", "occasion"],
+    "context": ["continent", "country", "city"],
+    "visual_detail": ["pattern", "season", "color_palette", "trend_notes"],
+}
+
 
 @dataclass
 class EvaluationRow:
@@ -102,18 +108,66 @@ def evaluate_prediction(expected: EvaluationRow, predicted: ClassificationResult
     return results
 
 
-def summarize_scores(score_rows: list[dict[str, bool | None]]) -> dict[str, dict[str, float | int]]:
+def summarize_scores(
+    dataset: list[EvaluationRow],
+    predictions: list[ClassificationResult],
+    score_rows: list[dict[str, bool | None]],
+) -> dict[str, dict[str, float | int]]:
     summary: dict[str, dict[str, float | int]] = {}
     for field_name in [*SCALAR_ATTRIBUTES, *LIST_ATTRIBUTES]:
         measured = [row[field_name] for row in score_rows if row[field_name] is not None]
         correct = [value for value in measured if value is True]
         total = len(measured)
+        predicted_non_empty = 0
+        for prediction in predictions:
+            predicted_value = getattr(prediction.attributes, field_name)
+            if field_name in LIST_ATTRIBUTES:
+                if _normalize_list(predicted_value):
+                    predicted_non_empty += 1
+            elif _normalize_scalar(predicted_value) is not None:
+                predicted_non_empty += 1
         summary[field_name] = {
             "correct": len(correct),
             "total": total,
             "accuracy": round(len(correct) / total, 4) if total else 0.0,
+            "prediction_coverage": round(predicted_non_empty / len(dataset), 4) if dataset else 0.0,
         }
     return summary
+
+
+def summarize_groups(per_attribute_accuracy: dict[str, dict[str, float | int]]) -> dict[str, dict[str, float | int]]:
+    group_summary: dict[str, dict[str, float | int]] = {}
+    for group_name, attributes in ATTRIBUTE_GROUPS.items():
+        measured = [per_attribute_accuracy[name]["total"] for name in attributes]
+        total = sum(int(value) for value in measured)
+        correct = sum(int(per_attribute_accuracy[name]["correct"]) for name in attributes)
+        macro_values = [
+            float(per_attribute_accuracy[name]["accuracy"])
+            for name in attributes
+            if int(per_attribute_accuracy[name]["total"]) > 0
+        ]
+        group_summary[group_name] = {
+            "correct": correct,
+            "total": total,
+            "micro_accuracy": round(correct / total, 4) if total else 0.0,
+            "macro_accuracy": round(sum(macro_values) / len(macro_values), 4) if macro_values else 0.0,
+        }
+    return group_summary
+
+
+def summarize_overall(per_attribute_accuracy: dict[str, dict[str, float | int]]) -> dict[str, float | int]:
+    measured_attributes = [
+        metrics for metrics in per_attribute_accuracy.values() if int(metrics["total"]) > 0
+    ]
+    total = sum(int(metrics["total"]) for metrics in measured_attributes)
+    correct = sum(int(metrics["correct"]) for metrics in measured_attributes)
+    macro_values = [float(metrics["accuracy"]) for metrics in measured_attributes]
+    return {
+        "correct": correct,
+        "total": total,
+        "micro_accuracy": round(correct / total, 4) if total else 0.0,
+        "macro_accuracy": round(sum(macro_values) / len(macro_values), 4) if macro_values else 0.0,
+    }
 
 
 def build_error_analysis(
@@ -153,10 +207,21 @@ def run_evaluation(dataset_path: Path) -> dict[str, Any]:
         predictions.append(prediction)
         score_rows.append(evaluate_prediction(row, prediction))
 
+    per_attribute_accuracy = summarize_scores(dataset, predictions, score_rows)
+
     return {
         "dataset_path": str(dataset_path),
         "sample_count": len(dataset),
-        "per_attribute_accuracy": summarize_scores(score_rows),
+        "attribute_groups": ATTRIBUTE_GROUPS,
+        "metrics_definition": {
+            "accuracy": "Exact-match accuracy for scalar attributes and full-set exact match for list attributes.",
+            "prediction_coverage": "Share of samples where the classifier returned a non-empty value for the attribute.",
+            "macro_accuracy": "Unweighted mean of per-attribute accuracies across measured attributes.",
+            "micro_accuracy": "Total correct predictions divided by total measured labels.",
+        },
+        "per_attribute_accuracy": per_attribute_accuracy,
+        "group_accuracy": summarize_groups(per_attribute_accuracy),
+        "overall_accuracy": summarize_overall(per_attribute_accuracy),
         "error_analysis": build_error_analysis(dataset, predictions, score_rows),
         "predictions": [
             {
@@ -190,6 +255,8 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"Wrote evaluation report to {args.output}")
+    print(json.dumps(report["overall_accuracy"], indent=2))
+    print(json.dumps(report["group_accuracy"], indent=2))
     print(json.dumps(report["per_attribute_accuracy"], indent=2))
 
 

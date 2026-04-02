@@ -24,7 +24,8 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["app"]
+packages = ["app", "eval"]
+py-modules = ["fashion_eval"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
